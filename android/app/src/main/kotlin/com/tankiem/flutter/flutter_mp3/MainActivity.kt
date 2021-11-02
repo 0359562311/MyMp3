@@ -2,6 +2,8 @@ package com.tankiem.flutter.flutter_mp3
 
 import android.Manifest
 import android.app.ActivityManager
+import android.app.NotificationChannel
+import android.app.NotificationManager
 import android.content.*
 import android.util.Log
 import androidx.annotation.NonNull
@@ -12,7 +14,9 @@ import java.io.File
 import androidx.core.app.ActivityCompat
 
 import android.content.pm.PackageManager
+import android.graphics.Color
 import android.media.MediaMetadataRetriever
+import android.os.Build
 import android.os.IBinder
 import androidx.core.content.ContextCompat
 import androidx.localbroadcastmanager.content.LocalBroadcastManager
@@ -38,8 +42,29 @@ class MainActivity : FlutterActivity() {
     )
     var fileList: MutableList<HashMap<String, Any?>> = mutableListOf(hashMapOf())
 
+    private fun createNotificationChannel() {
+        Log.d("TanKiem", "createNotificationChannel")
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            val serviceChannel = NotificationChannel(
+                Mp3Service.CHANNEL_ID,
+                "mp3 channel",
+                NotificationManager.IMPORTANCE_DEFAULT
+            ).apply {
+                description = "this is description"
+                enableLights(true)
+                lightColor = Color.BLUE
+            }
+
+            val manager = getSystemService(NotificationManager::class.java)
+
+            manager.createNotificationChannel(serviceChannel)
+
+        }
+    }
+
     override fun configureFlutterEngine(@NonNull flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
+        createNotificationChannel()
         if (isServiceRunning(Mp3Service::class.java)) {
             Log.d("TanKiem", "Service is running")
             val intent = Intent(this, Mp3Service::class.java)

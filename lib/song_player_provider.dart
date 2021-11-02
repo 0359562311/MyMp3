@@ -82,6 +82,7 @@ class SongProvider extends ChangeNotifier {
           notifyListeners();
         }
       } else if (event['action'] == "songChanged") {
+        print("TanKiem: songChange in flutter ${event['data']}");
         for (int i = 0; i < _songs.length; i++) {
           if (_songs[i].filePath == event['data']) {
             _index = i;
@@ -132,15 +133,11 @@ class SongProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  void start(int index) async {
-    _index = index;
-    _isPause = false;
-    playingSeconds = displaySeconds = 0;
-    await _methodChannel.invokeMethod("playSong", {
-      "filePath": _songs[_index].filePath,
+  void start(int index) {
+    _methodChannel.invokeMethod("playSong", {
+      "filePath": _songs[index].filePath,
       "data": _songs.map((e) => e.filePath).toList()
     });
-    notifyListeners();
   }
 
   void next() {

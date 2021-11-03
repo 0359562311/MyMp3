@@ -57,6 +57,7 @@ class _DragAnimationState extends State<DragAnimation>
     double dif = _bottomHeight - 90;
     return Scaffold(
       backgroundColor: Colors.white,
+      resizeToAvoidBottomInset: false,
       body: Consumer(
         builder: (context, watch, child) {
           if (watch(songProvider).state == Mp3PlayerState.loading) {
@@ -258,8 +259,9 @@ class _DragAnimationState extends State<DragAnimation>
                         _animated(90);
                       }
                     } else {
-                      if (_bottomHeight > height - 320 &&
-                          (details.primaryVelocity ?? 0) > 100) {
+                      if ((_bottomHeight > height - 320 &&
+                              (details.primaryVelocity ?? 0) > 100) ||
+                          (details.primaryVelocity ?? 0) < 0) {
                         _animated(height - 280);
                       } else {
                         _animated(90);

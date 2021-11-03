@@ -26,24 +26,24 @@ import com.tankiem.flutter.flutter_mp3.Mp3Service.Companion.ACTION_SONG_CHANGE
 import com.tankiem.flutter.flutter_mp3.Mp3Service.Companion.ACTION_STOP
 import io.flutter.plugin.common.EventChannel
 import kotlinx.coroutines.*
-import java.util.ArrayList
 
 
 class MainActivity : FlutterActivity() {
-    private val _methodChannel = "com.tankiem.flutter.flutter_mp3/method_channel"
-    private val _eventChannel = "com.tankiem.flutter.flutter_mp3/event_channel"
+    companion object {
+        private const val METHOD_CHANNEL = "com.tankiem.flutter.flutter_mp3/method_channel"
+        private const val EVENT_CHANNEL = "com.tankiem.flutter.flutter_mp3/event_channel"
+        private const val REQUEST_EXTERNAL_STORAGE = 1
+        private val PERMISSIONS_STORAGE = arrayOf(
+            Manifest.permission.READ_EXTERNAL_STORAGE,
+            Manifest.permission.WRITE_EXTERNAL_STORAGE
+        )
+    }
+
     private var service: Mp3Service? = null
     private var eventSink: EventChannel.EventSink? = null
-    private var isServiceRunning = false
-    private val REQUEST_EXTERNAL_STORAGE = 1
-    private val PERMISSIONS_STORAGE = arrayOf(
-        Manifest.permission.READ_EXTERNAL_STORAGE,
-        Manifest.permission.WRITE_EXTERNAL_STORAGE
-    )
-    var fileList: MutableList<HashMap<String, Any?>> = mutableListOf(hashMapOf())
+    var fileList: MutableList<HashMap<String, Any?>> = mutableListOf()
 
     private fun createNotificationChannel() {
-        Log.d("TanKiem", "createNotificationChannel")
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val serviceChannel = NotificationChannel(
                 Mp3Service.CHANNEL_ID,
@@ -64,6 +64,7 @@ class MainActivity : FlutterActivity() {
 
     override fun configureFlutterEngine(@NonNull flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
+        Log.d("TanKiem","in main " + Thread.currentThread())
         createNotificationChannel()
         if (isServiceRunning(Mp3Service::class.java)) {
             Log.d("TanKiem", "Service is running")
@@ -77,7 +78,7 @@ class MainActivity : FlutterActivity() {
         LocalBroadcastManager.getInstance(this).registerReceiver(localBroadcastReceiver,intentFilter1)
         MethodChannel(
             flutterEngine.dartExecutor.binaryMessenger,
-            _methodChannel
+            METHOD_CHANNEL
         ).setMethodCallHandler { call, result ->
             if (call.method == "checkPermission") {
                 val permission = ActivityCompat.checkSelfPermission(
@@ -114,19 +115,16 @@ class MainActivity : FlutterActivity() {
                 }
             } else if (call.method == "playSong") {
                 val filePath: String = call.argument<String>("filePath")!!
-                val data = call.argument<List<String>>("data")!!
                 if (!isServiceRunning(Mp3Service::class.java)) {
                     Log.d("TanKiem", "Service is not running")
                     CoroutineScope(Dispatchers.IO).launch {
                         val intent = Intent(this@MainActivity, Mp3Service::class.java)
                         intent.putExtra("filePath", filePath)
-                        intent.putStringArrayListExtra("data", data as ArrayList<String>)
                         ContextCompat.startForegroundService(this@MainActivity, intent)
                         bindService(intent, serviceConnection, Context.BIND_AUTO_CREATE)
                     }
                 } else {
                     Log.d("TanKiem", "Service is running")
-                    bindData()
                     service?.playSong(filePath)
                 }
                 result.success(null)
@@ -157,20 +155,17 @@ class MainActivity : FlutterActivity() {
             }
         }
 
-        EventChannel(flutterEngine.dartExecutor.binaryMessenger, _eventChannel)
+        EventChannel(flutterEngine.dartExecutor.binaryMessenger, EVENT_CHANNEL)
             .setStreamHandler(object: EventChannel.StreamHandler {
                 override fun onListen(arguments: Any?, events: EventChannel.EventSink?) {
                     eventSink = events
                 }
 
                 override fun onCancel(arguments: Any?) {
+                    eventSink = null
                 }
 
             })
-    }
-
-    private fun bindData() {
-        service?.bindData(fileList)
     }
 
     override fun onDestroy() {
@@ -184,12 +179,21 @@ class MainActivity : FlutterActivity() {
         override fun onServiceConnected(p0: ComponentName?, p1: IBinder?) {
             val binder = p1 as Mp3Service.Mp3Binder
             service = binder.getService()
-            bindData()
-            isServiceRunning = true
+            val data = arrayListOf<Song>()
+            fileList.forEach {
+                data.add(Song(
+                    it["filePath"] as String,
+                    it["fileName"] as String,
+                    it["image"] as ByteArray?,
+                    it["artist"] as String?,
+                    it["album"] as String?,
+                    it["title"] as String?,
+                ))
+            }
+            service!!.bindData(data)
         }
 
         override fun onServiceDisconnected(p0: ComponentName?) {
-            isServiceRunning = false
             service = null
         }
 
@@ -216,7 +220,7 @@ class MainActivity : FlutterActivity() {
                         if (file.isDirectory) {
                             fileList.addAll(getPlayList(file.absolutePath))
                         } else if (file.name.endsWith(".mp3")) {
-                            val song: HashMap<String, Any?> = HashMap()
+                            val song: HashMap<String, Any?> = hashMapOf()
                             song["filePath"] = file.absolutePath
                             song["fileName"] = file.name
                             val mmr = MediaMetadataRetriever()
@@ -269,33 +273,27 @@ class MainActivity : FlutterActivity() {
     private val localBroadcastReceiver = object:BroadcastReceiver(){
         override fun onReceive(p0: Context?, p1: Intent?) {
             Log.d("TanKiem","BroadCastReceiver in main ${p1?.action}")
-            when(p1?.action){
-                ACTION_SONG_CHANGE -> {
-                    runOnUiThread {
+            runOnUiThread {
+                when(p1?.action){
+                    ACTION_SONG_CHANGE -> {
                         eventSink?.success(hashMapOf(
                             "action" to "songChanged",
                             "data" to p1.extras?.getString("filePath")
                         ))
                     }
-                }
-                ACTION_PAUSE -> {
-                    runOnUiThread {
+                    ACTION_PAUSE -> {
                         eventSink?.success(hashMapOf(
                             "action" to "pause",
                             "data" to true
                         ))
                     }
-                }
-                ACTION_PLAY -> {
-                    runOnUiThread {
+                    ACTION_PLAY -> {
                         eventSink?.success(hashMapOf(
                             "action" to "pause",
                             "data" to false
                         ))
                     }
-                }
-                ACTION_STOP -> {
-                    runOnUiThread {
+                    ACTION_STOP -> {
                         eventSink?.success(hashMapOf(
                             "action" to "stop"
                         ))

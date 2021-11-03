@@ -177,10 +177,10 @@ class SongProvider extends ChangeNotifier {
 
   @override
   void dispose() {
+    _timer.cancel();
+    _streamEventChannel?.cancel();
     if (isPause) {
-      _timer.cancel();
       _methodChannel.invokeMethod("dispose");
-      _streamEventChannel?.cancel();
     }
     super.dispose();
   }

@@ -38,27 +38,31 @@ class Mp3Service : Service(){
     private var mediaSession: MediaSessionCompat? = null
 
     private val binder = Mp3Binder()
-    private lateinit var data: ArrayList<String>
     private var current: Int = -1
+    private var currentFilePath = ""
     private var isRandom = false
     private var isLoop = false
 
-    private var fileList: MutableList<HashMap<String, Any?>> = mutableListOf(hashMapOf())
+    private var fileList: ArrayList<Song> = ArrayList()
 
     override fun onBind(p0: Intent?): IBinder {
         return binder
     }
 
-    fun bindData(data: MutableList<HashMap<String, Any?>>) {
-        fileList = data
+    fun bindData(fileList: ArrayList<Song>) {
+        this.fileList = fileList
+        current = fileList.indexOfFirst {
+            it.filePath == currentFilePath
+        }
+        buildNotification(PlaybackStatus.PLAYING)
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        Log.d("TanKiem", "onStartCommand")
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
             initMediaSession()
         }
         if(intent?.getStringExtra("filePath") != null) {
-            data = intent.getStringArrayListExtra("data")!!
             val filePath = intent.getStringExtra("filePath")!!
             playSong(filePath)
         }
@@ -73,32 +77,7 @@ class Mp3Service : Service(){
         // Create a new MediaSession
         mediaSession = MediaSessionCompat(applicationContext, "AudioPlayer")
         //set MediaSession -> ready to receive media commands
-//        mediaSession!!.isActive = true
-        //indicate that the MediaSession handles transport control commands
-        // through its MediaSessionCompat.Callback.
-//        mediaSession!!.setFlags(MediaSessionCompat.FLAG_HANDLES_QUEUE_COMMANDS)
-//        val file = fileList[current]
-//        val albumArt = if(file["image"] != null) {
-//            BitmapFactory.decodeByteArray(file["image"] as ByteArray, 0,
-//                (file["image"] as ByteArray).size)
-//        } else {
-//            BitmapFactory.decodeResource(
-//                resources,
-//                R.drawable.mp3
-//            )
-//        }
-//        mediaSession!!.setMetadata(
-//                MediaMetadataCompat.Builder()
-//                    .putBitmap(MediaMetadata.METADATA_KEY_ALBUM_ART, albumArt)
-//                    .putString(MediaMetadata.METADATA_KEY_ARTIST,
-//                        (file["artist"]?:"N/A") as String?
-//                    )
-//                    .putString(MediaMetadata.METADATA_KEY_ALBUM, file["album"] as String?)
-//                    .putString(MediaMetadata.METADATA_KEY_TITLE,
-//                        (file["title"]?:file["filename"]) as String?
-//                    )
-//                    .build()
-//            )
+        mediaSession!!.isActive = true
     }
 
     private fun buildNotification(playbackStatus: PlaybackStatus) {
@@ -116,9 +95,9 @@ class Mp3Service : Service(){
             playOrPausePendingIntent = playbackAction(0)
         }
         val file = if(current >= 0) fileList[current] else null
-        val largeIcon = if(file?.get("image") != null) {
-            BitmapFactory.decodeByteArray(file["image"] as ByteArray, 0,
-                (file["image"] as ByteArray).size)
+        val largeIcon = if(file?.image != null) {
+            BitmapFactory.decodeByteArray(file.image , 0,
+                (file.image).size)
         } else {
             BitmapFactory.decodeResource(
                 resources,
@@ -126,66 +105,41 @@ class Mp3Service : Service(){
             )
         }
 
+        Log.d("TanKiem", "build notification ${file?.artist ?:"N/A"}  ${file?.title ?: file?.fileName}")
+
         // Create a new Notification
         val notificationBuilder = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
-            val notificationIntent = Intent(this, MainActivity::class.java).apply {
-                flags = Intent.FLAG_ACTIVITY_SINGLE_TOP
-                addCategory(Intent.CATEGORY_LAUNCHER)
-                action = Intent.ACTION_MAIN
-            }
-            val pendingIntent = PendingIntent.getActivity(this, 0, notificationIntent, 0)
             Builder(this, CHANNEL_ID)
-                .setShowWhen(false) // Set the Notification style
-                .setStyle(
-                    androidx.media.app.NotificationCompat.MediaStyle() // Attach our MediaSession token
-                        .setMediaSession(mediaSession!!.sessionToken) // Show our playback controls in the compact notification view.
-                        .setShowActionsInCompactView(0, 1, 2)
-                ) // Set the Notification color
-//                .setColor(resources.getColor(R.color.colorPrimary)) // Set the large and small icons
-                .setLargeIcon(largeIcon)
-                .setSmallIcon(android.R.drawable.stat_sys_headset) // Set Notification content information
-                .setContentText((file?.get("artist") ?:"N/A") as String?)
-                .setContentTitle((file?.get("title") ?: file?.get("fileName")) as String?)
-                .setContentIntent(pendingIntent)
-                .setContentInfo(file?.get("album") as String?)
-                .addAction(android.R.drawable.ic_media_previous, "previous", playbackAction(3))
-                .addAction(notificationIconCallback, "pause", playOrPausePendingIntent)
-                .addAction(
-                    android.R.drawable.ic_media_next,
-                    "next",
-                    playbackAction(2)
-                )
-                .addAction(android.R.drawable.ic_delete, "cancel", playbackAction(4))
         } else {
-            val notificationIntent = Intent(this, MainActivity::class.java).apply {
-                flags = Intent.FLAG_ACTIVITY_SINGLE_TOP
-                addCategory(Intent.CATEGORY_LAUNCHER)
-                action = Intent.ACTION_MAIN
-            }
-            val pendingIntent = PendingIntent.getActivity(this, 0, notificationIntent, 0)
             Builder(this)
-                .setShowWhen(false) // Set the Notification style
-                .setStyle(
-                    androidx.media.app.NotificationCompat.MediaStyle() // Attach our MediaSession token
-                        .setMediaSession(mediaSession!!.sessionToken) // Show our playback controls in the compact notification view.
-                        .setShowActionsInCompactView(0, 1, 2)
-                ) // Set the Notification color
-//                .setColor(resources.getColor(R.color.colorPrimary)) // Set the large and small icons
-                .setLargeIcon(largeIcon)
-                .setSmallIcon(android.R.drawable.stat_sys_headset) // Set Notification content information
-                .setContentText((file?.get("artist") ?:"N/A") as String?)
-                .setContentTitle((file?.get("title") ?: file?.get("fileName")) as String?)
-                .setContentIntent(pendingIntent)
-                .setContentInfo(file?.get("album") as String?)
-                .addAction(android.R.drawable.ic_media_previous, "previous", playbackAction(3))
-                .addAction(notificationIconCallback, "pause", playOrPausePendingIntent)
-                .addAction(
-                    android.R.drawable.ic_media_next,
-                    "next",
-                    playbackAction(2)
-                )
-                .addAction(android.R.drawable.ic_delete, "cancel", playbackAction(4))
         }
+        val notificationIntent = Intent(this, MainActivity::class.java).apply {
+            flags = Intent.FLAG_ACTIVITY_SINGLE_TOP
+            addCategory(Intent.CATEGORY_LAUNCHER)
+            action = Intent.ACTION_MAIN
+        }
+        val pendingIntent = PendingIntent.getActivity(this, 0, notificationIntent, 0)
+        notificationBuilder.setShowWhen(false) // Set the Notification style
+            .setStyle(
+                androidx.media.app.NotificationCompat.MediaStyle() // Attach our MediaSession token
+                    .setMediaSession(mediaSession!!.sessionToken) // Show our playback controls in the compact notification view.
+                    .setShowActionsInCompactView(0, 1, 2)
+            ) // Set the Notification color
+//                .setColor(resources.getColor(R.color.colorPrimary)) // Set the large and small icons
+            .setLargeIcon(largeIcon)
+            .setSmallIcon(android.R.drawable.stat_sys_headset) // Set Notification content information
+            .setContentText((file?.artist ?:"N/A") as String?)
+            .setContentTitle((file?.title ?: file?.fileName))
+            .setContentIntent(pendingIntent)
+            .setContentInfo(file?.album)
+            .addAction(android.R.drawable.ic_media_previous, "previous", playbackAction(3))
+            .addAction(notificationIconCallback, "pause", playOrPausePendingIntent)
+            .addAction(
+                android.R.drawable.ic_media_next,
+                "next",
+                playbackAction(2)
+            )
+            .addAction(android.R.drawable.ic_delete, "cancel", playbackAction(4))
         startForeground(NOTIFICATION_ID,notificationBuilder.build())
     }
 
@@ -256,23 +210,26 @@ class Mp3Service : Service(){
             mediaPlayer.stop()
             mediaPlayer.reset()
         }
-        current = data.indexOf(filePath)
+        currentFilePath = filePath
+        current = fileList.indexOfFirst {
+            it.filePath == filePath
+        }
         mediaPlayer = MediaPlayer.create(this, Uri.parse(filePath))
         mediaPlayer.setOnCompletionListener {
-            Log.d("TanKiem", "complete")
             if(!isLoop){
                 next()
             } else {
-                playSong(data[current])
+                playSong(filePath)
             }
         }
         mediaPlayer.setOnPreparedListener {
             val intent = Intent()
-            intent.putExtra("filePath", data[current])
+            intent.putExtra("filePath", filePath)
             intent.action = ACTION_SONG_CHANGE
             LocalBroadcastManager.getInstance(this).sendBroadcast(intent)
             it.start()
-            buildNotification(PlaybackStatus.PLAYING)
+            if(fileList.isNotEmpty())
+                buildNotification(PlaybackStatus.PLAYING)
         }
     }
 
@@ -296,22 +253,22 @@ class Mp3Service : Service(){
 
     fun next() {
         current = if(!isRandom) {
-            (current + 1) % data.size
+            (current + 1) % fileList.size
         } else {
-            Random.nextInt(data.size)
+            Random.nextInt(fileList.size)
         }
         buildNotification(PlaybackStatus.PLAYING)
-        playSong(data[current])
+        playSong(fileList[current].filePath)
     }
 
     fun previous() {
         current = if(!isRandom) {
-            (current - 1 + data.size) % data.size
+            (current - 1 + fileList.size) % fileList.size
         } else {
-            Random.nextInt(data.size)
+            Random.nextInt(fileList.size)
         }
         buildNotification(PlaybackStatus.PLAYING)
-        playSong(data[current])
+        playSong(fileList[current].filePath as String)
     }
 
     fun seekTo(value: Int) {
@@ -328,7 +285,7 @@ class Mp3Service : Service(){
 
     fun currentState(): HashMap<String, Any> {
         return hashMapOf(
-            "filePath" to data[current],
+            "filePath" to fileList[current].filePath,
             "seconds" to mediaPlayer.currentPosition,
             "isLoop" to isLoop,
             "isRandom" to isRandom

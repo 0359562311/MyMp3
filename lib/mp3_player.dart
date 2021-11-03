@@ -3,6 +3,7 @@ import 'dart:math';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/painting.dart';
+import 'package:flutter_mp3/bottom_sheet.dart';
 import 'package:flutter_mp3/main.dart';
 import 'package:flutter_mp3/song_player_provider.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -20,7 +21,7 @@ class _DragAnimationState extends State<DragAnimation>
     with TickerProviderStateMixin {
   late AnimationController _controller;
   late Animation<double> _animation;
-  double _bottomHeight = 90;
+  double _bottomHeight = 100;
   late _BottomState _bottomState;
 
   @override
@@ -54,7 +55,7 @@ class _DragAnimationState extends State<DragAnimation>
   Widget build(BuildContext context) {
     double width = MediaQuery.of(context).size.width;
     double height = MediaQuery.of(context).size.height;
-    double dif = _bottomHeight - 90;
+    double dif = _bottomHeight - 100;
     return Scaffold(
       backgroundColor: Colors.white,
       resizeToAvoidBottomInset: false,
@@ -116,14 +117,14 @@ class _DragAnimationState extends State<DragAnimation>
                                   : const AssetImage("assets/mp3.png"))
                               as ImageProvider,
                       backgroundColor: Colors.white,
-                      radius: max(0, 90 - dif / 3),
+                      radius: max(0, 100 - dif / 3),
                     ),
                   ),
                   SizedBox(
                     height: max(0, 50 - dif / 5),
                   ),
                   Align(
-                    alignment: Alignment(0 - (dif) / (height - 280), 0),
+                    alignment: Alignment(0 - (dif) / (height - 300), 0),
                     child: Text(
                       (watch(songProvider).currentSong?.title ?? "")
                           .toUpperCase(),
@@ -138,9 +139,9 @@ class _DragAnimationState extends State<DragAnimation>
                     height: 10,
                   ),
                   Align(
-                    alignment: Alignment(0 - (dif) / (height - 280), 0),
+                    alignment: Alignment(0 - (dif) / (height - 300), 0),
                     child: Text(
-                      watch(songProvider).currentSong?.singer ?? "N/A",
+                      watch(songProvider).currentSong?.artist ?? "N/A",
                       style: const TextStyle(color: Colors.black, fontSize: 18),
                     ),
                   ),
@@ -186,48 +187,7 @@ class _DragAnimationState extends State<DragAnimation>
                       ),
                     ],
                   ),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                    children: [
-                      IconButton(
-                          onPressed: () {
-                            context.read(songProvider).loop();
-                          },
-                          icon: Icon(
-                            Icons.loop,
-                            color: watch(songProvider).isLooping
-                                ? Colors.purple
-                                : Colors.black,
-                          )),
-                      IconButton(
-                          onPressed: () {
-                            context.read(songProvider).previous();
-                          },
-                          icon: const Icon(Icons.skip_previous)),
-                      IconButton(
-                          onPressed: () {
-                            context.read(songProvider).pauseOrPlay();
-                          },
-                          icon: watch(songProvider).isPause
-                              ? const Icon(Icons.play_arrow)
-                              : const Icon(Icons.pause)),
-                      IconButton(
-                          onPressed: () {
-                            context.read(songProvider).next();
-                          },
-                          icon: const Icon(Icons.skip_next)),
-                      IconButton(
-                          onPressed: () {
-                            context.read(songProvider).random();
-                          },
-                          icon: Icon(
-                            Icons.track_changes,
-                            color: watch(songProvider).isRandom
-                                ? Colors.purple
-                                : Colors.black,
-                          )),
-                    ],
-                  ),
+                  _ControlButtons()
                 ],
               ),
               Positioned(
@@ -243,8 +203,8 @@ class _DragAnimationState extends State<DragAnimation>
                     if ((details.primaryDelta ?? 0) != 0) {
                       setState(() {
                         _bottomHeight = max(
-                            90,
-                            min(height - 280,
+                            100,
+                            min(height - 300,
                                 _bottomHeight - (details.primaryDelta ?? 0)));
                       });
                     }
@@ -253,19 +213,18 @@ class _DragAnimationState extends State<DragAnimation>
                     if (_bottomState == _BottomState.shrink) {
                       if (_bottomHeight > 140 ||
                           (details.primaryVelocity ?? 0) < -100) {
-                        _animated(height - 280);
+                        _animated(height - 300);
                         _bottomState = _BottomState.expand;
                       } else {
-                        _animated(90);
+                        _animated(100);
                       }
                     } else {
-                      if ((_bottomHeight > height - 320 &&
-                              (details.primaryVelocity ?? 0) > 100) ||
-                          (details.primaryVelocity ?? 0) < 0) {
-                        _animated(height - 280);
-                      } else {
-                        _animated(90);
+                      if (_bottomHeight < height - 340 ||
+                          (details.primaryVelocity ?? 0) >= 100) {
+                        _animated(100);
                         _bottomState = _BottomState.shrink;
+                      } else {
+                        _animated(height - 300);
                       }
                     }
                   },
@@ -282,16 +241,23 @@ class _DragAnimationState extends State<DragAnimation>
                             topRight: Radius.circular(30))),
                     child: Column(
                       children: [
-                        _bottomState == _BottomState.expand
-                            ? const Icon(
-                                Icons.arrow_drop_down,
-                                color: Colors.white,
-                              )
-                            : const Icon(
-                                Icons.arrow_drop_up,
-                                color: Colors.white,
-                              ),
-                        const SizedBox()
+                        SizedBox(
+                          height: 20,
+                          child: _bottomState == _BottomState.expand
+                              ? const Icon(
+                                  Icons.arrow_drop_down,
+                                  color: Colors.white,
+                                )
+                              : const Icon(
+                                  Icons.arrow_drop_up,
+                                  color: Colors.white,
+                                ),
+                        ),
+                        Expanded(
+                          child: Mp3BottomSheet(
+                            bottomHeight: _bottomHeight - 20,
+                          ),
+                        )
                       ],
                     ),
                   ),
@@ -307,5 +273,50 @@ class _DragAnimationState extends State<DragAnimation>
   String _getSecondsString(int seconds) {
     if (seconds >= 10) return seconds.toString();
     return "0" + seconds.toString();
+  }
+}
+
+class _ControlButtons extends ConsumerWidget {
+  @override
+  Widget build(BuildContext context, ScopedReader watch) {
+    final data = watch(songProvider);
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+      children: [
+        IconButton(
+            onPressed: () {
+              context.read(songProvider).loop();
+            },
+            icon: Icon(
+              Icons.loop,
+              color: data.isLooping ? Colors.purple : Colors.black,
+            )),
+        IconButton(
+            onPressed: () {
+              context.read(songProvider).previous();
+            },
+            icon: const Icon(Icons.skip_previous)),
+        IconButton(
+            onPressed: () {
+              context.read(songProvider).pauseOrPlay();
+            },
+            icon: data.isPause
+                ? const Icon(Icons.play_arrow)
+                : const Icon(Icons.pause)),
+        IconButton(
+            onPressed: () {
+              context.read(songProvider).next();
+            },
+            icon: const Icon(Icons.skip_next)),
+        IconButton(
+            onPressed: () {
+              context.read(songProvider).random();
+            },
+            icon: Icon(
+              Icons.track_changes,
+              color: data.isRandom ? Colors.purple : Colors.black,
+            )),
+      ],
+    );
   }
 }

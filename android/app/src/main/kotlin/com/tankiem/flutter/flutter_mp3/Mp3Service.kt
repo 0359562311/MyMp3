@@ -50,11 +50,13 @@ class Mp3Service : Service(){
     }
 
     fun bindData(fileList: ArrayList<Song>) {
-        this.fileList = fileList
-        current = fileList.indexOfFirst {
-            it.filePath == currentFilePath
+        if(fileList.isNotEmpty()) {
+            this.fileList = fileList
+            current = fileList.indexOfFirst {
+                it.filePath == currentFilePath
+            }
+            buildNotification(PlaybackStatus.PLAYING)
         }
-        buildNotification(PlaybackStatus.PLAYING)
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -285,7 +287,7 @@ class Mp3Service : Service(){
 
     fun currentState(): HashMap<String, Any> {
         return hashMapOf(
-            "filePath" to fileList[current].filePath,
+            "filePath" to currentFilePath,
             "seconds" to mediaPlayer.currentPosition,
             "isLoop" to isLoop,
             "isRandom" to isRandom

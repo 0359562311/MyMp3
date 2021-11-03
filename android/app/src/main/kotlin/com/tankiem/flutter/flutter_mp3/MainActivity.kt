@@ -194,11 +194,10 @@ class MainActivity : FlutterActivity() {
         }
 
         override fun onServiceDisconnected(p0: ComponentName?) {
-            service = null
+//            service = null
         }
 
     }
-
     private fun isServiceRunning(mClass: Class<Mp3Service>): Boolean {
         val manager = getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager
         for (service: ActivityManager.RunningServiceInfo in manager.getRunningServices(Int.MAX_VALUE)) {

@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_mp3/test_animation.dart';
+import 'package:flutter_mp3/mp3_player.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'song_player_provider.dart';

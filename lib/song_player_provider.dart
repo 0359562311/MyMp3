@@ -15,6 +15,7 @@ class SongProvider extends ChangeNotifier {
   final List<Song> _songs = [];
   List<Song> get songs => _songs;
   int _index = -1;
+  int get index => _index;
 
   Song? get currentSong => _index < 0 ? null : _songs[_index];
 
